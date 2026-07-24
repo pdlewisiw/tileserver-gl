@@ -26,11 +26,15 @@ The authoritative RBT tile-matrix definition must specify, together:
 - valid latitude bounds;
 - the WMTS TileMatrixSet identifier.
 
-The legacy RBT MBTiles label themselves `EPSG:3395` but record an
-approximately `±20037508.343` metre square origin/extent, which is also the
-common Web Mercator grid extent. Treat that as a data-contract question to
-resolve with the product owner/source specification before implementing a
-standards-facing EPSG:3395 service.
+The legacy RBT MBTiles label themselves `EPSG:3395` and record an
+approximately `±20037508.343` metre square origin/extent. That extent is
+consistent with the OGC-published `WorldMercatorWGS84Quad` example for
+EPSG:3395; it is not, by itself, proof of an incorrect projection. The active
+MapProxy `mercator_3395` grid likewise declares `srs: EPSG:3395` with the same
+bounding box. Before declaring standards conformance, still verify the full
+TileMatrixSet contract—matrix dimensions, resolutions, row convention, and
+source-coordinate transforms—against the authoritative RBT/NGA product
+specification.
 
 ## Patch-series layout
 
@@ -77,6 +81,30 @@ npm run lint:js
 
 After validation, tag the downstream baseline with both upstream and RBT
 identity, for example: `rbt-v5.6.0-3395.1`.
+
+## Live endpoint evidence (2026-07-24)
+
+The supplied RBT development endpoint was checked directly:
+
+```text
+https://tileserver-rbt-agc-dev.apps.kubic.dev.ngaxc.net/styles/RBT-TOPO-3395/
+```
+
+Its viewer config selects `L.CRS.EPSG3395`. A known public reference point,
+Fairbanks International Airport (OpenStreetMap/Nominatim centre
+`64.8144016, -147.8586809`), transforms at zoom 12 as follows:
+
+```text
+WorldMercatorWGS84Quad / EPSG:3395: tile 12/365/1074, pixel about 178,225
+Web Mercator / EPSG:3857:             tile 12/365/1070, pixel about 178,237
+```
+
+The remote rendered tile `12/365/1074.png` visibly contains Fairbanks
+International Airport at the expected lower-right pixel region; the
+EPSG:3395 tile selection is therefore supported by direct live evidence.
+This verifies rendered XYZ tile addressing at this reference point. It does
+not yet verify static/autofit endpoints, WMTS matrix metadata, or all
+browser/client behavior.
 
 ## Acceptance evidence
 
