@@ -10,8 +10,7 @@ import cors from 'cors';
 import enableShutdown from 'http-shutdown';
 import express from 'express';
 import handlebars from 'handlebars';
-import { SphericalMercator } from '@mapbox/sphericalmercator';
-const mercator = new SphericalMercator();
+import { getTileGrid } from './tile_grid.js';
 import morgan from 'morgan';
 import { serve_data } from './serve_data.js';
 import { serve_style } from './serve_style.js';
@@ -90,6 +89,9 @@ async function start(opts) {
   }
 
   const options = config.options || {};
+  options.tileGrid = options.tileGrid || 'EPSG:3857';
+  // Fail at startup instead of silently rendering an unknown CRS as Web Mercator.
+  const tileGrid = getTileGrid(options.tileGrid);
   const paths = options.paths || {};
   options.paths = paths;
   paths.root = path.resolve(
@@ -766,7 +768,7 @@ async function start(opts) {
             5,
           )}/${center[0].toFixed(5)}`;
 
-          const centerPx = mercator.px([center[0], center[1]], center[2]);
+          const centerPx = tileGrid.px([center[0], center[1]], center[2]);
           // Set thumbnail default size to be 256px x 256px
           style.thumbnail = `${Math.floor(center[2])}/${Math.floor(
             centerPx[0] / 256,
@@ -839,7 +841,7 @@ async function start(opts) {
           data.is_terrain = true;
         }
         if (center) {
-          const centerPx = mercator.px([center[0], center[1]], center[2]);
+          const centerPx = tileGrid.px([center[0], center[1]], center[2]);
           data.thumbnail = `${Math.floor(center[2])}/${Math.floor(
             centerPx[0] / 256,
           )}/${Math.floor(centerPx[1] / 256)}.${tileJSON.format}`;
@@ -886,6 +888,8 @@ async function start(opts) {
       id,
       // eslint-disable-next-line security/detect-object-injection -- id is route parameter from URL
       name: (serving.styles[id] || serving.rendered[id]).name,
+      tileGrid: tileGrid.code,
+      isEpsg3395: tileGrid.code === 'EPSG:3395',
       // eslint-disable-next-line security/detect-object-injection -- id is route parameter from URL
       serving_data: serving.styles[id],
       // eslint-disable-next-line security/detect-object-injection -- id is route parameter from URL
@@ -931,6 +935,10 @@ async function start(opts) {
       // eslint-disable-next-line security/detect-object-injection -- id is route parameter from URL
       name: (serving.styles[id] || serving.rendered[id]).name,
       baseUrl,
+      tileMatrixSet256: `${tileGrid.wmtsIdentifier}_256`,
+      tileMatrixSet512: `${tileGrid.wmtsIdentifier}_512`,
+      tileGrid: tileGrid.code,
+      wmtsCrs: `urn:ogc:def:crs:EPSG::${tileGrid.code.slice(5)}`,
     };
   });
 

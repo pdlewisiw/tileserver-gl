@@ -48,7 +48,7 @@
       </Style>
       <Format>image/png</Format>
       <TileMatrixSetLink>
-        <TileMatrixSet>GoogleMapsCompatible_256</TileMatrixSet>
+        <TileMatrixSet>{{tileMatrixSet256}}</TileMatrixSet>
       </TileMatrixSetLink>
       <ResourceURL format="image/png" resourceType="tile" template="{{baseUrl}}styles/{{id}}/256/{TileMatrix}/{TileCol}/{TileRow}.png{{key_query}}"/>
     </Layer>
@@ -64,15 +64,15 @@
       </Style>
       <Format>image/png</Format>
       <TileMatrixSetLink>
-        <TileMatrixSet>GoogleMapsCompatible_512</TileMatrixSet>
+        <TileMatrixSet>{{tileMatrixSet512}}</TileMatrixSet>
       </TileMatrixSetLink>
       <ResourceURL format="image/png" resourceType="tile" template="{{baseUrl}}styles/{{id}}/512/{TileMatrix}/{TileCol}/{TileRow}.png{{key_query}}"/>
     </Layer>
     <TileMatrixSet>
-      <ows:Title>GoogleMapsCompatible_256</ows:Title>
-      <ows:Abstract>GoogleMapsCompatible_256 EPSG:3857</ows:Abstract>
-      <ows:Identifier>GoogleMapsCompatible_256</ows:Identifier>
-      <ows:SupportedCRS>urn:ogc:def:crs:EPSG::3857</ows:SupportedCRS>
+      <ows:Title>{{tileMatrixSet256}}</ows:Title>
+      <ows:Abstract>{{tileMatrixSet256}} {{tileGrid}}</ows:Abstract>
+      <ows:Identifier>{{tileMatrixSet256}}</ows:Identifier>
+      <ows:SupportedCRS>{{wmtsCrs}}</ows:SupportedCRS>
       <TileMatrix>
         <ows:Identifier>0</ows:Identifier>
         <ScaleDenominator>559082264.02872</ScaleDenominator>
@@ -246,10 +246,10 @@
       </TileMatrix>
     </TileMatrixSet>
     <TileMatrixSet>
-      <ows:Title>GoogleMapsCompatible_512</ows:Title>
-      <ows:Abstract>GoogleMapsCompatible_512 EPSG:3857</ows:Abstract>
-      <ows:Identifier>GoogleMapsCompatible_512</ows:Identifier>
-      <ows:SupportedCRS>urn:ogc:def:crs:EPSG::3857</ows:SupportedCRS>
+      <ows:Title>{{tileMatrixSet512}}</ows:Title>
+      <ows:Abstract>{{tileMatrixSet512}} {{tileGrid}}</ows:Abstract>
+      <ows:Identifier>{{tileMatrixSet512}}</ows:Identifier>
+      <ows:SupportedCRS>{{wmtsCrs}}</ows:SupportedCRS>
       <TileMatrix>
         <ows:Identifier>0</ows:Identifier>
         <ScaleDenominator>279541132.0143589</ScaleDenominator>

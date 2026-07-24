@@ -11,7 +11,9 @@ acceptance is welcome but is not a prerequisite for operating this fork.
 - Upstream remote: `https://github.com/maptiler/tileserver-gl.git`
 - Current baseline: `v5.6.0` / `000c365f3d6948733355be167f09d5585697c4c6`
 - Downstream branch: `rbt-3395`
-- Runtime target: Node 20 and an RL9-native MapLibre Native `mbgl.node`
+- Runtime target: Ubuntu 24.04, Node 24, and the official MapLibre Native
+  `6.4.1` prebuilt addon. An EL/RL final image is intentionally out of scope:
+  it cannot safely consume this Ubuntu-targeted native artifact.
 
 ## Non-negotiable design rule
 

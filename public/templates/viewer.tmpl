@@ -49,10 +49,10 @@
         return false;
     }
     var q = (location.search || '').substr(1).split('&');
-    var preference =
+    var preference = {{#isEpsg3395}}'raster'{{/isEpsg3395}}{{^isEpsg3395}}
       q.indexOf('vector') >= 0 ? 'vector' :
         (q.indexOf('raster') >= 0 ? 'raster' :
-          (isWebglSupported() ? 'vector' : 'raster'));
+          (isWebglSupported() ? 'vector' : 'raster')){{/isEpsg3395}};
 
     var keyMatch = location.search.match(/[\?\&]key=([^&]+)/i);
     var keyParam = keyMatch ? '?key=' + keyMatch[1] : '';    
@@ -97,7 +97,39 @@
          selectThreshold: 5
       }));
     } else {
-        var map = L.map('map', { minZoom: 1, zoomControl: false });
+        {{#isEpsg3395}}
+        // Leaflet needs an ellipsoidal projection as well as the RBT square
+        // tile extent; its built-in EPSG:3857 CRS would address the wrong rows.
+        (function () {
+          var R = 6378137;
+          var E = 0.08181919084262149;
+          var extent = 20037508.342789244;
+          var projection = {
+            project: function (latlng) {
+              var lat = Math.max(-85, Math.min(85, latlng.lat)) * Math.PI / 180;
+              var sin = Math.sin(lat);
+              return new L.Point(
+                R * latlng.lng * Math.PI / 180,
+                R * Math.log(Math.tan(Math.PI / 4 + lat / 2) * Math.pow((1 - E * sin) / (1 + E * sin), E / 2))
+              );
+            },
+            unproject: function (point) {
+              var t = Math.exp(-point.y / R);
+              var phi = Math.PI / 2 - 2 * Math.atan(t);
+              for (var i = 0; i < 12; i++) {
+                phi = Math.PI / 2 - 2 * Math.atan(t * Math.pow((1 - E * Math.sin(phi)) / (1 + E * Math.sin(phi)), E / 2));
+              }
+              return new L.LatLng(phi * 180 / Math.PI, point.x * 180 / (Math.PI * R));
+            }
+          };
+          L.CRS.EPSG3395 = L.extend({}, L.CRS.EPSG3857, {
+            code: 'EPSG:3395',
+            projection: projection,
+            transformation: new L.Transformation(1 / (2 * extent), 0.5, -1 / (2 * extent), 0.5)
+          });
+        }());
+        {{/isEpsg3395}}
+        var map = L.map('map', { minZoom: 1, zoomControl: false{{#isEpsg3395}}, crs: L.CRS.EPSG3395{{/isEpsg3395}} });
         new L.Control.Zoom({ position: 'topright' }).addTo(map);
         
         var tile_urls = [], tile_attribution, tile_minzoom, tile_maxzoom;

@@ -40,7 +40,7 @@ RUN mkdir -p /etc/apt/keyrings; \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list; \
     apt-get -qq update; \
     apt-get install -y nodejs; \
-    npm i -g npm@latest; \
+    npm i -g npm@10.9.2; \
     apt-get -y remove gnupg; \
     apt-get -y --purge autoremove; \
     apt-get clean; \
@@ -53,9 +53,9 @@ WORKDIR /usr/src/app
 RUN curl -L -o test_data.zip https://github.com/maptiler/tileserver-gl/releases/download/v1.3.0/test_data.zip; \
     unzip -q test_data.zip -d test_data
 
-COPY package.json .
-# Running npm install for development (includes devDependencies for tests)
-RUN npm install && npm rebuild canvas --build-from-source
+COPY package.json package-lock.json .
+# Running a lockfile-pinned development install (includes devDependencies for tests)
+RUN npm ci && npm rebuild canvas --build-from-source
 COPY / .
 
 # Execute tests using xvfb-run

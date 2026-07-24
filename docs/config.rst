@@ -42,7 +42,8 @@ Example:
       "allowRemoteMarkerIcons": true,
       "allowInlineMarkerImages": true,
       "staticAttributionText": "© OpenMapTiles  © OpenStreetMaps",
-      "tileMargin": 0
+      "tileMargin": 0,
+      "tileGrid": "EPSG:3857"
     },
     "styles": {
       "basic": {
@@ -73,6 +74,14 @@ Example:
 
 ``options``
 ===========
+
+``tileGrid``
+------------
+
+Selects the rendered-tile matrix and static-map projection. The default is
+``EPSG:3857`` (upstream Web Mercator behavior). ``EPSG:3395`` selects the RBT
+ellipsoidal World Mercator matrix with the ``WorldMercatorWGS84Quad`` identifier.
+An unsupported value stops startup rather than falling back to EPSG:3857.
 
 ``paths``
 ---------

@@ -29,7 +29,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests nodejs && \
-    npm i -g npm@latest && \
+    npm i -g npm@10.9.2 && \
     apt-get -y remove curl gnupg && \
     apt-get -y --purge autoremove && \
     apt-get clean && \
@@ -80,7 +80,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests nodejs && \
-    npm i -g npm@latest && \
+    npm i -g npm@10.9.2 && \
     # Create appropriate symlinks if needed
     ln -sf "$(find /usr -name "libjemalloc.so*" | head -n 1)" /usr/lib/libjemalloc.so && \
     apt-get -y remove curl gnupg && \
@@ -100,6 +100,9 @@ ENV \
 
 COPY --from=builder /usr/src/app /usr/src/app
 COPY . /usr/src/app
+# The final process is the unprivileged node user.  Source files can arrive from
+# a restrictive host umask, so make the complete application tree readable.
+RUN chmod -R a+rX /usr/src/app
 
 RUN mkdir -p /data && chown node:node /data
 VOLUME /data

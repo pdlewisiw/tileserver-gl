@@ -12,6 +12,14 @@ describe('RBT tile-grid configuration', function () {
 
     const [, northing] = grid.project([0, 45]);
     assert.ok(Math.abs(northing - 5591295.918553) < 0.01);
+
+    const [pixelX, pixelY] = grid.px([-147.8586809, 64.8144016], 12);
+    assert.equal(Math.floor(pixelX / 256), 365);
+    assert.equal(Math.floor(pixelY / 256), 1074);
+
+    const point = grid.ll([pixelX, pixelY], 12);
+    assert.ok(Math.abs(point[0] + 147.8586809) < 0.000001);
+    assert.ok(Math.abs(point[1] - 64.8144016) < 0.000001);
   });
 
   it('does not silently treat an unsupported grid as EPSG:3857', function () {

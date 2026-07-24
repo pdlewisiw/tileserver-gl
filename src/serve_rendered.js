@@ -20,7 +20,6 @@ import clone from 'clone';
 import Color from 'color';
 import express from 'express';
 import sanitize from 'sanitize-filename';
-import { SphericalMercator } from '@mapbox/sphericalmercator';
 import mlgl from '@maplibre/maplibre-gl-native';
 import polyline from '@mapbox/polyline';
 import proj4 from 'proj4';
@@ -37,6 +36,7 @@ import {
   readFile,
 } from './utils.js';
 import { openPMtiles, getPMtilesInfo } from './pmtiles_adapter.js';
+import { getTileGrid } from './tile_grid.js';
 import { renderOverlay, renderWatermark, renderAttribution } from './render.js';
 import fsp from 'node:fs/promises';
 import { existsP, gunzipP } from './promises.js';
@@ -63,8 +63,6 @@ const staticTypeRegex = new RegExp(
 
 const PATH_PATTERN =
   /^((fill|stroke|width|border|borderwidth):[^|]+\|)*(enc:.+|-?\d+(\.\d*)?,-?\d+(\.\d*)?(\|-?\d+(\.\d*)?,-?\d+(\.\d*)?)+)/;
-
-const mercator = new SphericalMercator();
 
 mlgl.on('message', (e) => {
   if (e.severity === 'WARNING' || e.severity === 'ERROR') {
@@ -500,15 +498,16 @@ function extractMarkersFromQuery(query, options, transformer) {
  * @param {number} w Width of the image.
  * @param {number} h Height of the image.
  * @param {object} query Request query parameters.
+ * @param {object} grid Selected tile-grid transform.
  * @returns {number} Calculated zoom level.
  */
-function calcZForBBox(bbox, w, h, query) {
+function calcZForBBox(bbox, w, h, query, grid) {
   let z = 25;
 
   const padding = query.padding !== undefined ? parseFloat(query.padding) : 0.1;
 
-  const minCorner = mercator.px([bbox[0], bbox[3]], z);
-  const maxCorner = mercator.px([bbox[2], bbox[1]], z);
+  const minCorner = grid.px([bbox[0], bbox[3]], z);
+  const maxCorner = grid.px([bbox[2], bbox[1]], z);
   const w_ = w / (1 + 2 * padding);
   const h_ = h / (1 + 2 * padding);
 
@@ -714,7 +713,7 @@ async function respondImage(
         });
 
         if (z > 0 && tileMargin > 0) {
-          const y = mercator.px(params.center, z)[1];
+          const y = getTileGrid(options.tileGrid).px(params.center, z)[1];
           const yoffset = Math.max(
             Math.min(0, y - 128 - tileMargin),
             y + 128 + tileMargin - Math.pow(2, z + 8),
@@ -898,7 +897,8 @@ async function handleTileRequest(
     return res.status(400).send('Out of bounds');
   }
 
-  const tileCenter = mercator.ll(
+  const grid = getTileGrid(options.tileGrid);
+  const tileCenter = grid.ll(
     [((x + 0.5) / (1 << z)) * (256 << z), ((y + 0.5) / (1 << z)) * (256 << z)],
     z,
   );
@@ -943,6 +943,7 @@ async function handleStaticRequest(
   } = req.params;
   // eslint-disable-next-line security/detect-object-injection -- id is route parameter, validated by Express
   const item = repo[id];
+  const grid = getTileGrid(options.tileGrid);
 
   let parsedWidth = null;
   let parsedHeight = null;
@@ -993,9 +994,7 @@ async function handleStaticRequest(
       return res.status(404).send('Invalid zoom');
     }
 
-    const transformer = isRaw
-      ? mercator.inverse.bind(mercator)
-      : item.dataProjWGStoInternalWGS;
+    const transformer = isRaw ? grid.unproject : item.dataProjWGStoInternalWGS;
 
     if (transformer) {
       const ll = transformer([x, y]);
@@ -1023,9 +1022,7 @@ async function handleStaticRequest(
     const bbox = [minx, miny, maxx, maxy];
     let center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
 
-    const transformer = isRaw
-      ? mercator.inverse.bind(mercator)
-      : item.dataProjWGStoInternalWGS;
+    const transformer = isRaw ? grid.unproject : item.dataProjWGStoInternalWGS;
 
     if (transformer) {
       const minCorner = transformer(bbox.slice(0, 2));
@@ -1037,7 +1034,7 @@ async function handleStaticRequest(
       center = transformer(center);
     }
 
-    const z = calcZForBBox(bbox, parsedWidth, parsedHeight, req.query);
+    const z = calcZForBBox(bbox, parsedWidth, parsedHeight, req.query, grid);
     const x = center[0];
     const y = center[1];
     const bearing = 0;
@@ -1059,9 +1056,7 @@ async function handleStaticRequest(
     const bearing = 0;
     const pitch = 0;
 
-    const transformer = isRaw
-      ? mercator.inverse.bind(mercator)
-      : item.dataProjWGStoInternalWGS;
+    const transformer = isRaw ? grid.unproject : item.dataProjWGStoInternalWGS;
 
     const paths = extractPathsFromQuery(req.query, transformer);
     const markers = extractMarkersFromQuery(req.query, options, transformer);
@@ -1088,15 +1083,16 @@ async function handleStaticRequest(
       bbox[3] = Math.max(bbox[3], pair[1]);
     }
 
-    const bbox_ = mercator.convert(bbox, '900913');
-    const center = mercator.inverse([
-      (bbox_[0] + bbox_[2]) / 2,
-      (bbox_[1] + bbox_[3]) / 2,
+    const projectedMin = grid.project([bbox[0], bbox[1]]);
+    const projectedMax = grid.project([bbox[2], bbox[3]]);
+    const center = grid.unproject([
+      (projectedMin[0] + projectedMax[0]) / 2,
+      (projectedMin[1] + projectedMax[1]) / 2,
     ]);
 
     // Calculate zoom level
     const maxZoom = parseFloat(req.query.maxzoom);
-    let z = calcZForBBox(bbox, parsedWidth, parsedHeight, req.query);
+    let z = calcZForBBox(bbox, parsedWidth, parsedHeight, req.query, grid);
     if (maxZoom > 0) {
       z = Math.min(z, maxZoom);
     }
