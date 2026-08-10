@@ -72,7 +72,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
       libpng16-16t64 \
       libopengl0 \
       libcurl4 \
-      librsvg2-dev \
+      librsvg2-2 \
       libpango-1.0-0 \
       libjemalloc2 && \
     mkdir -p /etc/apt/keyrings && \
@@ -80,8 +80,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends --no-install-suggests nodejs && \
-    npm i -g npm@10.9.2 && \
-    # Create appropriate symlinks if needed
+    # Runtime executes Node and the lockfile-controlled application dependencies; remove the NodeSource-bundled npm tree so it cannot add an unused dependency/CVE surface.
+    rm -rf /usr/lib/node_modules/npm /usr/bin/npm /usr/bin/npx && \
     ln -sf "$(find /usr -name "libjemalloc.so*" | head -n 1)" /usr/lib/libjemalloc.so && \
     apt-get -y remove curl gnupg && \
     apt-get -y --purge autoremove && \
