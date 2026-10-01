@@ -1,0 +1,22 @@
+# Dedicated Rocky 9 test image. The runtime image remains npm/compiler-free.
+FROM localhost/maplibre-node:6.4.1-rl9-verified AS native
+FROM localhost/rbtmaps-tileserver:5.6.0-rl9-candidate
+USER root
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN dnf -y module enable nodejs:24 \
+    && dnf -y --setopt=install_weak_deps=False install npm \
+    && dnf clean all
+ENV NODE_ENV=development
+WORKDIR /usr/src/app
+# Dev dependencies include Mocha and visual-test support. npm ci wipes the
+# runtime node_modules, so reinstall the exact distro-native addon afterward.
+RUN npm ci
+COPY --from=native /src/platform/node/lib/node-v137/mbgl.node /usr/src/app/node_modules/@maplibre/maplibre-gl-native/lib/node-v137/mbgl.node
+RUN test "$(node -p 'process.versions.modules')" = 137 \
+    && node -e 'const m=require("@maplibre/maplibre-gl-native"); if(typeof m.Map!=="function")process.exit(1)' \
+    && node -e 'require("canvas"); require("sharp")' \
+    && test -x node_modules/.bin/mocha
+# Mount the verified upstream test_data archive contents at this path at run
+# time rather than embedding the dataset in the production or test image.
+ENTRYPOINT ["/bin/bash", "-lc"]
+CMD ["script -q -e -c \"xvfb-run --server-args='-screen 0 1024x768x24' npm run test\" /dev/null"]

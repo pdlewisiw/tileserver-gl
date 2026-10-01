@@ -1,0 +1,52 @@
+# Rocky 9.8 RBT TileServer GL candidate. Build with the separately verified
+# Rocky 9.8 MapLibre Native 6.4.1 builder image in the same Podman store.
+FROM localhost/maplibre-node:6.4.1-rl9-verified AS native
+
+FROM docker.io/rockylinux/rockylinux:9.8 AS app-builder
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN dnf -y --setopt=install_weak_deps=False install dnf-plugins-core \
+    && dnf config-manager --set-enabled crb \
+    && dnf -y module enable nodejs:24 \
+    && dnf -y --setopt=install_weak_deps=False install \
+      nodejs npm gcc-c++ make python3 pkgconf-pkg-config \
+      cairo-devel pango-devel giflib-devel libjpeg-turbo-devel \
+      libpng-devel librsvg2-devel \
+    && dnf clean all
+ENV NODE_ENV=production
+WORKDIR /usr/src/app
+COPY package.json package-lock.json ./
+# canvas 3.2.3's source uses librsvg APIs newer than EL9's 2.50; use its
+# pinned prebuilt N-API package only if the subsequent load and ldd gates pass.
+RUN npm ci --omit=dev
+# The npm install hook fetches a generic Ubuntu-built linux-x64 addon. Replace
+# its exact ABI path with the artifact compiled and inspected on Rocky 9.8.
+COPY --from=native /src/platform/node/lib/node-v137/mbgl.node /usr/src/app/node_modules/@maplibre/maplibre-gl-native/lib/node-v137/mbgl.node
+RUN test "$(node -p 'process.versions.modules')" = 137 \
+    && test -s node_modules/@maplibre/maplibre-gl-native/lib/node-v137/mbgl.node
+
+FROM docker.io/rockylinux/rockylinux:9.8 AS final
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN dnf -y module enable nodejs:24 \
+    && dnf -y --setopt=install_weak_deps=False install \
+      nodejs which ca-certificates xorg-x11-server-Xvfb \
+      cairo pango giflib libjpeg-turbo libpng librsvg2 \
+      libicu libuv libwebp libX11 libglvnd-glx \
+      libglvnd-opengl mesa-libGL fontconfig dejavu-sans-fonts \
+    && dnf clean all \
+    && useradd --system --home-dir /home/node --create-home node \
+    && mkdir -p /data /usr/src/app \
+    && chown node:node /data
+ENV NODE_ENV=production CHOKIDAR_USEPOLLING=1 CHOKIDAR_INTERVAL=500
+COPY --from=app-builder /usr/src/app /usr/src/app
+COPY . /usr/src/app
+RUN chmod -R a+rX /usr/src/app \
+    && chmod a+x /usr/src/app/docker-entrypoint.sh \
+    && test "$(node -p 'process.versions.modules')" = 137 \
+    && node -e 'const m=require("/usr/src/app/node_modules/@maplibre/maplibre-gl-native"); if(typeof m.Map!=="function")process.exit(1)' \
+    && node -e 'require("/usr/src/app/node_modules/canvas"); require("/usr/src/app/node_modules/sharp")'
+VOLUME /data
+WORKDIR /data
+EXPOSE 8080
+USER node:node
+ENTRYPOINT ["/usr/src/app/docker-entrypoint.sh"]
+HEALTHCHECK CMD node /usr/src/app/src/healthcheck.js
